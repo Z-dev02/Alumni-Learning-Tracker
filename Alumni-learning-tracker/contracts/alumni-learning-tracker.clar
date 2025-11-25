@@ -198,3 +198,85 @@
         (ok true)
     )
 )
+
+;; #[allow(unchecked_data)]
+(define-public (complete-course (course-id uint))
+    (let (
+        (course (unwrap! (map-get? courses { course-id: course-id }) err-not-found))
+        (alumni-profile (unwrap! (map-get? alumni-profiles { alumni: tx-sender }) err-unauthorized))
+        (already-completed (has-completed-course tx-sender course-id))
+        (current-height stacks-block-height)
+    )
+        (asserts! (not already-completed) err-already-exists)
+        (asserts! (get active course) err-course-inactive)
+        (map-set course-completions
+            { alumni: tx-sender, course-id: course-id }
+            { completed: true, completion-time: current-height }
+        )
+        (map-set alumni-profiles
+            { alumni: tx-sender }
+            {
+                total-points: (+ (get total-points alumni-profile) (get reward-amount course)),
+                courses-completed: (+ (get courses-completed alumni-profile) u1),
+                registered: true,
+                reputation-score: (+ (get reputation-score alumni-profile) u10),
+                achievements: (get achievements alumni-profile)
+            }
+        )
+        (var-set total-completions (+ (var-get total-completions) u1))
+        (var-set total-rewards-distributed (+ (var-get total-rewards-distributed) (get reward-amount course)))
+        (update-learning-streak tx-sender current-height)
+        (ok (get reward-amount course))
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (rate-course (course-id uint) (rating uint))
+    (let (
+        (course (unwrap! (map-get? courses { course-id: course-id }) err-not-found))
+        (rating-data (unwrap! (map-get? course-ratings { course-id: course-id }) err-not-found))
+        (has-completed (has-completed-course tx-sender course-id))
+        (new-total (+ (get total-ratings rating-data) u1))
+        (new-sum (+ (get rating-sum rating-data) rating))
+    )
+        (asserts! has-completed err-unauthorized)
+        (asserts! (<= rating u5) err-invalid-rating)
+        (asserts! (> rating u0) err-invalid-rating)
+        (map-set course-ratings
+            { course-id: course-id }
+            {
+                total-ratings: new-total,
+                rating-sum: new-sum,
+                average-rating: (/ new-sum new-total)
+            }
+        )
+        (ok true)
+    )
+)
+
+;; Private functions
+;; #[allow(unchecked_data)]
+(define-private (update-learning-streak (alumni principal) (current-height uint))
+    (let (
+        (streak-data (default-to 
+            { current-streak: u0, longest-streak: u0, last-activity: u0 }
+            (map-get? learning-streaks { alumni: alumni })
+        ))
+        (last-activity (get last-activity streak-data))
+        (current-streak (get current-streak streak-data))
+        (longest-streak (get longest-streak streak-data))
+        (new-streak (if (and (> last-activity u0) (<= (- current-height last-activity) u144))
+            (+ current-streak u1)
+            u1
+        ))
+    )
+        (map-set learning-streaks
+            { alumni: alumni }
+            {
+                current-streak: new-streak,
+                longest-streak: (if (> new-streak longest-streak) new-streak longest-streak),
+                last-activity: current-height
+            }
+        )
+    )
+)
