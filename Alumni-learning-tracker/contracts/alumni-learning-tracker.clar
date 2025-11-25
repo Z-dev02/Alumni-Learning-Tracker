@@ -59,3 +59,60 @@
     { alumni: principal }
     { current-streak: uint, longest-streak: uint, last-activity: uint }
 )
+
+;; Read-only functions
+;; #[allow(unchecked_data)]
+(define-read-only (get-course (course-id uint))
+    (map-get? courses { course-id: course-id })
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (get-alumni-profile (alumni principal))
+    (map-get? alumni-profiles { alumni: alumni })
+)
+
+(define-read-only (get-total-courses)
+    (ok (var-get total-courses))
+)
+
+(define-read-only (get-total-completions)
+    (ok (var-get total-completions))
+)
+
+(define-read-only (get-total-rewards-distributed)
+    (ok (var-get total-rewards-distributed))
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (has-completed-course (alumni principal) (course-id uint))
+    (default-to false (get completed (map-get? course-completions { alumni: alumni, course-id: course-id })))
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (get-course-rating (course-id uint))
+    (map-get? course-ratings { course-id: course-id })
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (get-learning-streak (alumni principal))
+    (map-get? learning-streaks { alumni: alumni })
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (get-completion-info (alumni principal) (course-id uint))
+    (map-get? course-completions { alumni: alumni, course-id: course-id })
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (has-badge (alumni principal) (badge-id uint))
+    (default-to false (get earned (map-get? alumni-badges { alumni: alumni, badge-id: badge-id })))
+)
+
+(define-read-only (get-platform-fee)
+    (ok (var-get platform-fee))
+)
+
+;; #[allow(unchecked_data)]
+(define-read-only (calculate-course-fee (reward-amount uint))
+    (ok (/ (* reward-amount (var-get platform-fee)) u100))
+)
