@@ -280,3 +280,50 @@
         )
     )
 )
+
+;; #[allow(unchecked_data)]
+(define-public (award-badge (alumni principal) (badge-id uint))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (is-some (map-get? alumni-profiles { alumni: alumni })) err-not-found)
+        (map-set alumni-badges
+            { alumni: alumni, badge-id: badge-id }
+            { earned: true, earned-at: stacks-block-height }
+        )
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (update-platform-fee (new-fee uint))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (<= new-fee u20) err-invalid-amount) ;; Max 20% fee
+        (var-set platform-fee new-fee)
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (boost-reputation (alumni principal) (boost-amount uint))
+    (let ((profile (unwrap! (map-get? alumni-profiles { alumni: alumni }) err-not-found)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (map-set alumni-profiles
+            { alumni: alumni }
+            (merge profile { reputation-score: (+ (get reputation-score profile) boost-amount) })
+        )
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (increment-achievements (alumni principal))
+    (let ((profile (unwrap! (map-get? alumni-profiles { alumni: alumni }) err-not-found)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (map-set alumni-profiles
+            { alumni: alumni }
+            (merge profile { achievements: (+ (get achievements profile) u1) })
+        )
+        (ok true)
+    )
+)
