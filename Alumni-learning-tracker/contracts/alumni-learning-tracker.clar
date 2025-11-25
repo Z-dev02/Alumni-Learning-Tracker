@@ -116,3 +116,85 @@
 (define-read-only (calculate-course-fee (reward-amount uint))
     (ok (/ (* reward-amount (var-get platform-fee)) u100))
 )
+
+;; Public functions
+;; #[allow(unchecked_data)]
+(define-public (register-alumni)
+    (let ((existing-profile (map-get? alumni-profiles { alumni: tx-sender })))
+        (if (is-some existing-profile)
+            err-already-exists
+            (begin
+                (map-set alumni-profiles
+                    { alumni: tx-sender }
+                    { total-points: u0, courses-completed: u0, registered: true, reputation-score: u100, achievements: u0 }
+                )
+                (map-set learning-streaks
+                    { alumni: tx-sender }
+                    { current-streak: u0, longest-streak: u0, last-activity: u0 }
+                )
+                (ok true)
+            )
+        )
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (create-course (title (string-ascii 100)) (reward-amount uint) (difficulty-level uint) (category (string-ascii 50)))
+    (let ((new-course-id (+ (var-get total-courses) u1)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (> reward-amount u0) err-invalid-amount)
+        (map-set courses
+            { course-id: new-course-id }
+            { 
+                title: title, 
+                reward-amount: reward-amount, 
+                active: true,
+                difficulty-level: difficulty-level,
+                category: category
+            }
+        )
+        (map-set course-ratings
+            { course-id: new-course-id }
+            { total-ratings: u0, rating-sum: u0, average-rating: u0 }
+        )
+        (var-set total-courses new-course-id)
+        (ok new-course-id)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (deactivate-course (course-id uint))
+    (let ((course (unwrap! (map-get? courses { course-id: course-id }) err-not-found)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (map-set courses
+            { course-id: course-id }
+            (merge course { active: false })
+        )
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (reactivate-course (course-id uint))
+    (let ((course (unwrap! (map-get? courses { course-id: course-id }) err-not-found)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (map-set courses
+            { course-id: course-id }
+            (merge course { active: true })
+        )
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+(define-public (update-course-reward (course-id uint) (new-reward uint))
+    (let ((course (unwrap! (map-get? courses { course-id: course-id }) err-not-found)))
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (> new-reward u0) err-invalid-amount)
+        (map-set courses
+            { course-id: course-id }
+            (merge course { reward-amount: new-reward })
+        )
+        (ok true)
+    )
+)
